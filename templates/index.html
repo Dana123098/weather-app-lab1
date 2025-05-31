@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Sprawdź pogodę</title>
+</head>
+<body>
+    <h1>Sprawdź pogodę</h1>
+
+    <form action="/weather" method="POST">
+        <label for="country">Wybierz kraj:</label>
+        <select name="country" id="country" required>
+            {% for country in countries %}
+                <option value="{{ country }}">{{ country }}</option>
+            {% endfor %}
+        </select>
+        
+        <br><br>
+
+        <label for="city">Wybierz miasto:</label>
+        <select name="city" id="city" required>
+            {% for country, cities in countries.items() %}
+                {% for city in cities %}
+                    <option value="{{ city }}">{{ city }}</option>
+                {% endfor %}
+            {% endfor %}
+        </select>
+
+        <br><br>
+
+        <button type="submit">Sprawdź pogodę</button>
+    </form>
+
+</body>
+</html>
