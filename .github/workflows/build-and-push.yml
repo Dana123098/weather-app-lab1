@@ -52,7 +52,7 @@ jobs:
         with:
           images: |
             ghcr.io/${{ github.repository }}
-            danagen/weather-app-lab1
+            Dana123098/weather-app-lab1
           tags: |
             type=raw,value=latest
             type=sha
