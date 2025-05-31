@@ -51,7 +51,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ghcr.io/Dana123098/weather-app-lab1
+            ghcr.io/dana123098/weather-app-lab1
             danagen/weather-app-lab1
           tags: |
             type=raw,value=latest
@@ -68,16 +68,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Wait for image to be available
-        run: sleep 15
-
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         env:
           TRIVY_USERNAME: Dana123098
           TRIVY_PASSWORD: ${{ secrets.GHCR_PAT }}
         with:
-          image-ref: ghcr.io/Dana123098/weather-app-lab1:latest
+          image-ref: ghcr.io/dana123098/weather-app-lab1:latest
           format: table
           exit-code: '1'
           ignore-unfixed: true
