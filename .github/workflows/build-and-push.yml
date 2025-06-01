@@ -66,12 +66,21 @@ jobs:
 
       - name: Load Docker image for scanning
         run: |
+          # Sprawdź, czy plik istnieje
+          if [ ! -f "/tmp/weather-app.tar" ]; then
+            echo "Error: /tmp/weather-app.tar not found!"
+            exit 1
+          fi
           # Znajdź indeks obrazu dla linux/amd64 za pomocą skopeo inspect
-          IMAGE_INDEX=$(skopeo inspect oci-archive:/tmp/weather-app.tar | jq -r '.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64") | .digest')
-          # Załaduj obraz OCI z pliku tar za pomocą skopeo, używając konkretnego indeksu
-          skopeo copy "oci-archive:/tmp/weather-app.tar@${IMAGE_INDEX}" docker-daemon:local-weather-app:${{ github.sha }}
+          IMAGE_DIGEST=$(skopeo inspect oci-archive:/tmp/weather-app.tar | jq -r '.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64") | .digest')
+          if [ -z "$IMAGE_DIGEST" ]; then
+            echo "Error: No digest found for linux/amd64 platform!"
+            exit 1
+          fi
+          # Załaduj obraz OCI z pliku tar za pomocą skopeo, używając konkretnego digestu
+          skopeo copy "oci-archive:/tmp/weather-app.tar" "docker-daemon:local-weather-app:${{ github.sha }}@${IMAGE_DIGEST}"
           # Ustaw dodatkowy tag dla zgodności z Trivy
-          docker tag local-weather-app:${{ github.sha }} ghcr.io/dana123098/weather-app:latest
+          docker tag "local-weather-app:${{ github.sha }}@${IMAGE_DIGEST}" ghcr.io/dana123098/weather-app:latest
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
