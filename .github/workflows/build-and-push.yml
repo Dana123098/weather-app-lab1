@@ -23,6 +23,7 @@ jobs:
             echo "Error: Dockerfile not found!"
             exit 1
           fi
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -52,6 +53,7 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha
+
       - name: Build and push Docker image with cache
         uses: docker/build-push-action@v5
         with:
@@ -70,4 +72,4 @@ jobs:
           format: table
           exit-code: '1'
           ignore-unfixed: true
-          severity: CRITICAL  
+          severity: CRITICAL
