@@ -23,7 +23,6 @@ jobs:
             echo "Error: Dockerfile not found!"
             exit 1
           fi
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -38,6 +37,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
@@ -46,73 +52,7 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha
-
-      - name: Build Docker image locally (with OCI export)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/weather-app-cache:latest
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/weather-app-cache:latest,mode=max
-          outputs: type=oci,dest=/tmp/weather-app.tar
-
-      - name: Install skopeo and jq
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y skopeo jq
-
-      - name: Debug OCI archive contents
-        run: |
-          # Sprawdź, czy plik istnieje
-          if [ ! -f "/tmp/weather-app.tar" ]; then
-            echo "Error: /tmp/weather-app.tar not found!"
-            exit 1
-          fi
-          # Wyświetl zawartość pliku tar dla debugowania
-          echo "Listing contents of /tmp/weather-app.tar:"
-          tar -tvf /tmp/weather-app.tar
-          # Wyświetl wynik skopeo inspect
-          echo "Inspecting OCI archive with skopeo:"
-          skopeo inspect oci-archive:/tmp/weather-app.tar || echo "Failed to inspect OCI archive"
-
-      - name: Load Docker image for scanning
-        run: |
-          # Znajdź indeks obrazu dla linux/amd64 za pomocą skopeo inspect
-          IMAGE_DIGEST=$(skopeo inspect oci-archive:/tmp/weather-app.tar | jq -r '.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64") | .digest')
-          if [ -z "$IMAGE_DIGEST" ]; then
-            echo "Error: No digest found for linux/amd64 platform!"
-            echo "Falling back to single platform build for linux/amd64..."
-            # Buduj ponownie obraz tylko dla linux/amd64
-            docker buildx build --platform linux/amd64 -t local-weather-app:${{ github.sha }} --load .
-            # Ustaw dodatkowy tag dla zgodności z Trivy
-            docker tag local-weather-app:${{ github.sha }} ghcr.io/dana123098/weather-app:latest
-          else
-            # Załaduj obraz OCI z pliku tar za pomocą skopeo, używając konkretnego digestu
-            skopeo copy "oci-archive:/tmp/weather-app.tar:$IMAGE_DIGEST" "docker-daemon:local-weather-app:${{ github.sha }}"
-            # Ustaw dodatkowy tag dla zgodności z Trivy
-            docker tag local-weather-app:${{ github.sha }} ghcr.io/dana123098/weather-app:latest
-          fi
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: local-weather-app:${{ github.sha }}
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: CRITICAL,HIGH
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
-
-      - name: Push Docker image to GHCR
+      - name: Build and push Docker image with cache
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -122,3 +62,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/weather-app-cache:latest
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/weather-app-cache:latest,mode=max
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/dana123098/weather-app:latest
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: CRITICAL
