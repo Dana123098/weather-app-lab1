@@ -59,15 +59,17 @@ jobs:
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/weather-app-cache:latest,mode=max
           outputs: type=oci,dest=/tmp/weather-app.tar
 
-      - name: Install skopeo
+      - name: Install skopeo and jq
         run: |
           sudo apt-get update
-          sudo apt-get install -y skopeo
+          sudo apt-get install -y skopeo jq
 
       - name: Load Docker image for scanning
         run: |
-          # Załaduj obraz OCI z pliku tar za pomocą skopeo (dla linux/amd64)
-          skopeo copy --override-os linux --override-arch amd64 oci-archive:/tmp/weather-app.tar docker-daemon:local-weather-app:${{ github.sha }}
+          # Znajdź indeks obrazu dla linux/amd64 za pomocą skopeo inspect
+          IMAGE_INDEX=$(skopeo inspect oci-archive:/tmp/weather-app.tar | jq -r '.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64") | .digest')
+          # Załaduj obraz OCI z pliku tar za pomocą skopeo, używając konkretnego indeksu
+          skopeo copy "oci-archive:/tmp/weather-app.tar@${IMAGE_INDEX}" docker-daemon:local-weather-app:${{ github.sha }}
           # Ustaw dodatkowy tag dla zgodności z Trivy
           docker tag local-weather-app:${{ github.sha }} ghcr.io/dana123098/weather-app:latest
 
