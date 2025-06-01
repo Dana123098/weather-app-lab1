@@ -59,12 +59,17 @@ jobs:
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/weather-app-cache:latest,mode=max
           outputs: type=oci,dest=/tmp/weather-app.tar
 
+      - name: Install skopeo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
       - name: Load Docker image for scanning
         run: |
-          # Załaduj obraz OCI z pliku tar
-          docker load --input /tmp/weather-app.tar
-          # Ustaw lokalny tag dla obrazu (używając pierwszego tagu z metadanych)
-          docker tag ghcr.io/dana123098/weather-app:latest local-weather-app:${{ github.sha }}
+          # Załaduj obraz OCI z pliku tar za pomocą skopeo
+          skopeo copy oci-archive:/tmp/weather-app.tar docker-daemon:local-weather-app:${{ github.sha }}
+          # Ustaw dodatkowy tag dla zgodności z Trivy
+          docker tag local-weather-app:${{ github.sha }} ghcr.io/dana123098/weather-app:latest
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -91,4 +96,4 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/weather-app-cache:latest
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/weather-app-cache:latest,mode=max  
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/weather-app-cache:latest,mode=max
