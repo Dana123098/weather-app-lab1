@@ -67,7 +67,7 @@ jobs:
       - name: Load Docker image for scanning
         run: |
           # Załaduj obraz OCI z pliku tar za pomocą skopeo (dla linux/amd64)
-          skopeo copy --platform linux/amd64 oci-archive:/tmp/weather-app.tar docker-daemon:local-weather-app:${{ github.sha }}
+          skopeo copy --override-os linux --override-arch amd64 oci-archive:/tmp/weather-app.tar docker-daemon:local-weather-app:${{ github.sha }}
           # Ustaw dodatkowy tag dla zgodności z Trivy
           docker tag local-weather-app:${{ github.sha }} ghcr.io/dana123098/weather-app:latest
 
