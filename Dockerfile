@@ -2,40 +2,46 @@
 ARG BUILDPLATFORM
 
 # Etap 1: Budowa - instalacja zależności
-FROM --platform=$BUILDPLATFORM python:3.13.0-alpine AS builder
+FROM --platform=$BUILDPLATFORM python:3.13.0a6-alpine3.20 AS builder
 WORKDIR /app
 
 # Kopiowanie pliku z zależnościami jako pierwsza warstwa dla lepszego wykorzystania cache
 COPY requirements.txt .
-# Instalacja pip i zależności w katalogu użytkownika
-RUN pip install --no-cache-dir --upgrade pip && \
+
+# Zaktualizuj system i doinstaluj wymagane biblioteki z konkretnymi wersjami
+RUN apk update && \
+    apk upgrade --no-cache && \
+    apk add --no-cache \
+      openssl=3.3.3-r0 \
+      sqlite-libs=3.45.3-r2 \
+      xz-libs=5.6.2-r1 && \
+    pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir --user -r requirements.txt
 
 # Etap 2: Obraz końcowy - minimalizacja rozmiaru
-FROM python:3.13.0-alpine
+FROM python:3.13.0a6-alpine3.20
 WORKDIR /app
 
-# Kopiowanie zależności z etapu builder
+# Skopiuj wymagane biblioteki z etapu builder
 COPY --from=builder /root/.local /root/.local
 
-# Kopiowanie plików aplikacji
+# Skopiuj kod aplikacji
 COPY app.py .
 COPY templates/ templates/
 
-# Ustawienie użytkownika nie-root dla bezpieczeństwa
+# Utwórz użytkownika nie-root
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
-# Ustawienie zmiennych środowiskowych
-ENV PATH=/root/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/sbin:/bin
+# Ustawienia środowiskowe
+ENV PATH=/root/.local/bin:$PATH
 ENV PORT=5000
-# WEATHER_API_KEY będzie przekazywane w runtime przez GitHub Actions
 
-# Metadane zgodne ze standardem OCI - informacje o autorze
+# Dodaj metadane OCI
 LABEL org.opencontainers.image.author="Daiana Henina <danaqwer5@gmail.com>"
 
-# Eksponowanie portu, na którym aplikacja nasłuchuje
+# Udostępnienie portu
 EXPOSE 5000
 
-# Komenda uruchamiająca aplikację za pomocą Gunicorn z 4 workerami
+# Komenda uruchamiająca aplikację
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "app:app"]
